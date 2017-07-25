@@ -78,10 +78,15 @@ func decrypt(k key, in []byte) []byte {
 	ks := k.stream(sz)
 	o := make([]byte, sz)
 	for i, v := range in {
-		if v < ks[i] {
+		k := ks[i]
+		// only generate up to our max modulus value
+		if k > maxKey {
+			k -= maxKey
+		}
+		if v < k {
 			v += maxKey
 		}
-		o[i] = v - ks[i]
+		o[i] = v - k
 	}
 	return o
 }
@@ -89,9 +94,19 @@ func decrypt(k key, in []byte) []byte {
 func encrypt(k key, in []byte) []byte {
 	sz := len(in)
 	ks := k.stream(sz)
+	if verbose {
+		for _, v := range ks {
+			fmt.Printf("%d ", v)
+		}
+	}
 	o := make([]byte, sz)
 	for i, v := range in {
-		o[i] = ks[i] + v
+		k := ks[i]
+		// only generate up to our max modulus value
+		if k > maxKey {
+			k -= maxKey
+		}
+		o[i] = k + v
 		if o[i] > maxKey {
 			o[i] = o[i] - maxKey
 		}
@@ -188,7 +203,8 @@ func (k *key) stream(count int) []byte {
 	tot := 0
 	for tot < count {
 		cardVal := k.oneRound()
-		if cardVal == 255 {
+		// if we land on any joker - ignore this round
+		if cardVal >= ja {
 			continue
 		}
 		r[tot] = cardVal
@@ -298,14 +314,8 @@ func (k *key) oneRound() byte {
 	// get the value of this card
 	val := (*k)[tc]
 
-	// if we land on a joker - ignore this round
-	if val > 53 {
-		return 255
-	}
-
-	// only generate up to our max modulus value
-	if val > maxKey {
-		val -= maxKey
+	if verbose {
+		fmt.Println("\nkey val: ", valToCard[val], val)
 	}
 	return val
 }
